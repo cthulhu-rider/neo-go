@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -121,18 +122,21 @@ readloop:
 		c.ws.SetReadDeadline(time.Now().Add(wsPongLimit))
 		err := c.ws.ReadJSON(rr)
 		if err != nil {
+			log.Println("close WS client channel reason 1", err)
 			// Timeout/connection loss/malformed response.
 			break
 		}
 		if rr.RawID == nil && rr.Method != "" {
 			event, err := response.GetEventIDFromString(rr.Method)
 			if err != nil {
+				log.Println("close WS client channel reason 2", err)
 				// Bad event received.
 				break
 			}
 			var slice []json.RawMessage
 			err = json.Unmarshal(rr.RawParams, &slice)
 			if err != nil || (event != response.MissedEventID && len(slice) != 1) {
+				log.Println("close WS client channel reason 3", err)
 				// Bad event received.
 				break
 			}
@@ -149,12 +153,14 @@ readloop:
 			case response.MissedEventID:
 				// No value.
 			default:
+				log.Println("close WS client channel reason 4", event)
 				// Bad event received.
 				break readloop
 			}
 			if event != response.MissedEventID {
 				err = json.Unmarshal(slice[0], val)
 				if err != nil {
+					log.Println("close WS client channel reason 5", err)
 					// Bad event received.
 					break
 				}
@@ -168,6 +174,7 @@ readloop:
 			resp.Result = rr.Result
 			c.responses <- resp
 		} else {
+			log.Println("close WS client channel reason 6")
 			// Malformed response, neither valid request, nor valid response.
 			break
 		}
